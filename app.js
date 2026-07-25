@@ -122,7 +122,35 @@ const academicDatabase = {
     }
 };
 
-let syllabusTracker = JSON.parse(localStorage.getItem('syllabusTracker')) || {};
+function safeReadStorage(key, fallback) {
+    try {
+        const savedValue = localStorage.getItem(key);
+        return savedValue ? JSON.parse(savedValue) : fallback;
+    } catch (error) {
+        console.warn(`Unable to read ${key}:`, error);
+        return fallback;
+    }
+}
+
+function safeWriteStorage(key, value) {
+    try {
+        localStorage.setItem(key, JSON.stringify(value));
+    } catch (error) {
+        console.warn(`Unable to save ${key}:`, error);
+    }
+}
+
+function showToast(message) {
+    const toast = document.getElementById('app-toast');
+    if (!toast) return;
+
+    toast.textContent = message;
+    toast.classList.add('show');
+    clearTimeout(showToast.timer);
+    showToast.timer = setTimeout(() => toast.classList.remove('show'), 2400);
+}
+
+let syllabusTracker = safeReadStorage('syllabusTracker', {});
 
 // --- HELPER: GITHUB RELEASE URL CONVERTER FOR BROWSER VIEWING ---
 function getGithubPdfViewerUrl(tag, filename) {
@@ -134,13 +162,45 @@ function getGithubPdfDownloadUrl(tag, filename) {
     return `https://github.com/${GITHUB_USER}/${GITHUB_REPO}/releases/download/${tag}/${filename}`;
 }
 
+async function openReleaseAsset(tag, filename) {
+    const viewUrl = getGithubPdfViewerUrl(tag, filename);
+    window.open(viewUrl, '_blank', 'noopener,noreferrer');
+}
+
+async function downloadReleaseAsset(tag, filename, displayName) {
+    const downloadUrl = getGithubPdfDownloadUrl(tag, filename);
+    try {
+        const response = await fetch(downloadUrl, {
+            method: 'GET',
+            headers: { 'User-Agent': 'StudyWorkspaceApp' }
+        });
+
+        if (!response.ok) {
+            throw new Error(`Download failed with ${response.status}`);
+        }
+
+        const blob = await response.blob();
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = displayName || filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(link.href);
+        showToast('Download started.');
+    } catch (error) {
+        console.warn('Unable to download asset:', error);
+        showToast('Unable to download file. Try direct link.');
+    }
+}
+
 // --- DARK / LIGHT THEME CONTROLLER ---
 const sunSVG = `<path fill="currentColor" d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5s5-2.24 5-5s-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58c-.39-.39-1.03-.39-1.41 0s-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37c-.39-.39-1.03-.39-1.41 0s-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41l-1.06-1.06zm1.06-10.96c.39-.39.39-1.03 0-1.41s-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36c.39-.39.39-1.03 0-1.41s-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z"/>`;
 const moonSVG = `<path fill="currentColor" d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 0 1-4.4 2.26a5.403 5.403 0 0 1-5.4-5.4c0-1.81.89-3.42 2.26-4.4C12.92 3.04 12.46 3 12 3z"/>`;
 
 function applyTheme(theme) {
     document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('theme', theme);
+    safeWriteStorage('theme', theme);
     document.querySelectorAll('.theme-icon-svg').forEach(icon => {
         icon.innerHTML = theme === 'dark' ? sunSVG : moonSVG;
     });
@@ -228,7 +288,7 @@ function renderDashboard() {
 
 function toggleTrackItem(key) {
     syllabusTracker[key] = !syllabusTracker[key];
-    localStorage.setItem('syllabusTracker', JSON.stringify(syllabusTracker));
+    safeWriteStorage('syllabusTracker', syllabusTracker);
     renderDashboard();
 }
 
@@ -254,10 +314,16 @@ function renderSyllabusPage() {
             <h3>${code}</h3>
             <p style="color: var(--text-muted); font-size:0.85rem; margin: 0.2rem 0 1rem;">${academicDatabase[code].name}</p>
             <div class="btn-container">
-                <a href="${viewUrl}" target="_blank" class="btn-action">${eyeIcon} View</a>
-                <a href="${downloadUrl}" download class="btn-action btn-secondary">${downloadIcon} Download</a>
+                <button type="button" class="btn-action" data-action="view" data-tag="${tag}" data-filename="${fileName}">${eyeIcon} View</button>
+                <button type="button" class="btn-action btn-secondary" data-action="download" data-tag="${tag}" data-filename="${fileName}" data-label="${fileName}">${downloadIcon} Download</button>
             </div>
         `;
+        card.querySelector('[data-action="view"]').addEventListener('click', async () => {
+            await openReleaseAsset(tag, fileName);
+        });
+        card.querySelector('[data-action="download"]').addEventListener('click', async () => {
+            await downloadReleaseAsset(tag, fileName, fileName);
+        });
         container.appendChild(card);
     });
 }
@@ -281,10 +347,16 @@ function renderNotesPage() {
             <h3>${code}</h3>
             <p style="color: var(--text-muted); font-size:0.85rem; margin: 0.2rem 0 1rem;">${academicDatabase[code].name}</p>
             <div class="btn-container">
-                <a href="${viewUrl}" target="_blank" class="btn-action" style="background:#059669">${eyeIcon} Read Notes</a>
-                <a href="${downloadUrl}" download class="btn-action btn-secondary">${downloadIcon} PDF</a>
+                <button type="button" class="btn-action" style="background:#059669" data-action="view" data-tag="${tag}" data-filename="${fileName}">${eyeIcon} Read Notes</button>
+                <button type="button" class="btn-action btn-secondary" data-action="download" data-tag="${tag}" data-filename="${fileName}" data-label="${fileName}">${downloadIcon} PDF</button>
             </div>
         `;
+        card.querySelector('[data-action="view"]').addEventListener('click', async () => {
+            await openReleaseAsset(tag, fileName);
+        });
+        card.querySelector('[data-action="download"]').addEventListener('click', async () => {
+            await downloadReleaseAsset(tag, fileName, fileName);
+        });
         container.appendChild(card);
     });
 }
@@ -346,128 +418,77 @@ function renderSlideTopicsList(subCode) {
             row.innerHTML = `
                 <span style="font-size:0.85rem;"><strong>File: ${topic.code}.pdf</strong><br><span style="color:var(--text-muted);">${topic.name}</span></span>
                 <div class="btn-container" style="flex:none; width:auto; margin-top:0;">
-                    <a href="${viewUrl}" target="_blank" class="btn-action" style="padding:0.4rem 0.6rem; font-size:0.75rem; background:#9333ea">${eyeIcon} View</a>
-                    <a href="${downloadUrl}" download class="btn-action btn-secondary" style="padding:0.4rem 0.6rem; font-size:0.75rem;">${downloadIcon} Download</a>
+                    <button type="button" class="btn-action" style="padding:0.4rem 0.6rem; font-size:0.75rem; background:#9333ea" data-action="view" data-tag="${tag}" data-filename="${fileName}">${eyeIcon} View</button>
+                    <button type="button" class="btn-action btn-secondary" style="padding:0.4rem 0.6rem; font-size:0.75rem;" data-action="download" data-tag="${tag}" data-filename="${fileName}" data-label="${fileName}">${downloadIcon} Download</button>
                 </div>
             `;
+            row.querySelector('[data-action="view"]').addEventListener('click', async () => {
+                await openReleaseAsset(tag, fileName);
+            });
+            row.querySelector('[data-action="download"]').addEventListener('click', async () => {
+                await downloadReleaseAsset(tag, fileName, fileName);
+            });
             box.appendChild(row);
         });
         container.appendChild(box);
     });
 }
 
-// --- 5. BULK SECTION ZIP DOWNLOAD ENGINE ---
-function downloadSectionZip(type) {
-    alert(`Preparing ${type.toUpperCase()} package zip download...`);
-    const zip = new JSZip();
-    const folder = zip.folder(`${type}_files`);
+// --- 6. PWA INSTALLATION ENGINE ---
+let deferredPrompt = null;
 
-    if (type === 'syllabus') {
-        Object.keys(academicDatabase).forEach(code => {
-            folder.file(`${code}_Syllabus.pdf`, `Syllabus Content for ${code}`);
-        });
-    } else if (type === 'notes') {
-        Object.keys(academicDatabase).forEach(code => {
-            folder.file(`${code}_Notes.pdf`, `Notes Content for ${code}`);
-        });
-    } else if (type === 'slides') {
-        Object.keys(academicDatabase).forEach(code => {
-            const subFolder = folder.folder(code);
-            academicDatabase[code].units.forEach(unit => {
-                unit.topics.forEach(topic => {
-                    subFolder.file(`${topic.code}.pdf`, `Slide deck for ${topic.name}`);
-                });
-            });
-        });
-    }
+function setInstallVisibility(isVisible) {
+    const installSidebarItem = document.getElementById('pwa-install-sidebar-item');
+    const installMobileBtn = document.getElementById('pwa-install-mobile');
+    const installMainBtn = document.getElementById('pwa-install-btn');
 
-    zip.generateAsync({ type: "blob" }).then(function (content) {
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(content);
-        link.download = `StudySpace_${type.toUpperCase()}_Package.zip`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+    [installSidebarItem, installMobileBtn, installMainBtn].forEach((element) => {
+        if (element) {
+            element.classList.toggle('hidden', !isVisible);
+        }
     });
 }
 
-// --- 6. PWA INSTALLATION ENGINE ---
-let deferredPrompt;
-window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault();
-    deferredPrompt = e;
-    document.getElementById('pwa-install-sidebar-item')?.classList.remove('hidden');
-    document.getElementById('pwa-install-mobile')?.classList.remove('hidden');
+window.addEventListener('beforeinstallprompt', (event) => {
+    event.preventDefault();
+    deferredPrompt = event;
+    setInstallVisibility(true);
 });
 
 function installPWA() {
-    if (deferredPrompt) {
-        deferredPrompt.prompt();
-        deferredPrompt.userChoice.then((choiceResult) => {
-            if (choiceResult.outcome === 'accepted') {
-                document.getElementById('pwa-install-sidebar-item')?.classList.add('hidden');
-                document.getElementById('pwa-install-mobile')?.classList.add('hidden');
-            }
-            deferredPrompt = null;
-        });
-    }
-}
-
-let deferredPrompt; // Browser ke native install prompt ko hold rakhne ke liye
-
-// 1. Browser ke default automatic banner ko hold karna
-window.addEventListener('beforeinstallprompt', (e) => {
-    // Default browser banner ko roko
-    e.preventDefault();
-    // Event ko variable me save kar lo
-    deferredPrompt = e;
-    
-    // Install button ko screen par visible kar do
-    const installBtn = document.getElementById('pwa-install-btn');
-    if (installBtn) {
-        installBtn.classList.remove('hidden');
-    }
-});
-
-// 2. Button Click par Chrome ka Official Install Popup Trigger Karna
-function triggerPWAInstall() {
     if (!deferredPrompt) {
-        alert("App installation is not available or already installed.");
+        showToast('Install is not available right now.');
         return;
     }
 
-    // Official Chrome Native Prompt dikhao
     deferredPrompt.prompt();
-
-    // User ka choice check karo (Installed or Cancelled)
     deferredPrompt.userChoice.then((choiceResult) => {
         if (choiceResult.outcome === 'accepted') {
-            console.log('User accepted the PWA install prompt');
-            // Install hone ke baad button wapas hide kar do
-            document.getElementById('pwa-install-btn')?.classList.add('hidden');
-        } else {
-            console.log('User dismissed the PWA install prompt');
+            setInstallVisibility(false);
+            showToast('App installed successfully.');
         }
         deferredPrompt = null;
     });
 }
 
-// 3. Agar app pehle se installed hai (Standalone Mode), toh button hide rakho
+function triggerPWAInstall() {
+    installPWA();
+}
+
 window.addEventListener('appinstalled', () => {
-    console.log('PWA was successfully installed');
-    document.getElementById('pwa-install-btn')?.classList.add('hidden');
+    setInstallVisibility(false);
     deferredPrompt = null;
 });
 
 // --- INITIALIZATION ---
 document.addEventListener('DOMContentLoaded', () => {
-    const savedTheme = localStorage.getItem('theme') || 'light';
+    const savedTheme = safeReadStorage('theme', 'light');
     applyTheme(savedTheme);
     navigateTo('dashboard');
 
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('sw.js')
-            .then(reg => console.log('Service Worker Registered!', reg))
-            .catch(err => console.error('SW Reg Failure', err));
+            .then((reg) => console.log('Service Worker Registered!', reg))
+            .catch((err) => console.error('SW Reg Failure', err));
     }
 });
