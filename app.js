@@ -45,13 +45,20 @@ const academicDatabase = {
         ]
     },
     "MJC-7-Eng": {
-        name: "British Poetry and Drama : 17th Century",
-        tag: "mjc-7-english",
-        units: [
-            { title: "Unit 1: Epic Poetry", topics: [{ code: "1.1.1", name: "John Milton: Paradise Lost (Book 1)" }] },
-            { title: "Unit 2: Metaphysical Poetry", topics: [{ code: "2.1.1", name: "John Donne: Poems Series" }] },
-            { title: "Unit 3: Jacobean Comedy", topics: [{ code: "3.1.1", name: "Ben Jonson: The Alchemist" }] },
-            { title: "Unit 4: Jacobean Tragedy", topics: [{ code: "4.1.1", name: "Thomas Middleton: Women Beware Women" }] }
+    name: "British Poetry and Drama : 17th Century",
+    tag: "mjc-7-english",
+    units: [
+        { title: "Unit 1: Epic Poetry", topics: [{ code: "1.1.1.1", name: "John Milton: Paradise Lost (Book 1)" }] },
+        { 
+            title: "Unit 2: Metaphysical Poetry", topics: [
+                { code: "2.1.1.1", name: "John Donne: The Sunne Rising" },
+                { code: "2.1.1.2", name: "John Donne: The Good Morrow" },
+                { code: "2.1.1.3", name: "John Donne: A Hymn to God the Father" },
+                { code: "2.1.1.4", name: "John Donne: Death Be Not Proud" }
+            ] 
+        },
+        { title: "Unit 3: Jacobean Comedy / Drama", topics: [{ code: "3.1.1.1", name: "Ben Jonson: The Alchemist" }] },
+        { title: "Unit 4: Jacobean Tragedy / Drama", topics: [{ code: "4.1.1.1", name: "Thomas Middleton: Women Beware Women" }] }
         ]
     },
     "MIC-4-Urdu": {
