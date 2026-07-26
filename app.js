@@ -130,6 +130,7 @@ const academicDatabase = {
 };
 
 function safeReadStorage(key, fallback) {
+    if (key !== 'syllabusTracker') return fallback;
     try {
         const savedValue = localStorage.getItem(key);
         return savedValue ? JSON.parse(savedValue) : fallback;
@@ -140,6 +141,7 @@ function safeReadStorage(key, fallback) {
 }
 
 function safeWriteStorage(key, value) {
+    if (key !== 'syllabusTracker') return;
     try {
         localStorage.setItem(key, JSON.stringify(value));
     } catch (error) {
@@ -157,7 +159,21 @@ function showToast(message) {
     showToast.timer = setTimeout(() => toast.classList.remove('show'), 2400);
 }
 
-let syllabusTracker = safeReadStorage('syllabusTracker', {});
+let syllabusTracker = {};
+
+function resetBrowserAppData() {
+    if (typeof localStorage === 'undefined') return;
+    const keepKey = 'syllabusTracker';
+    const keysToRemove = [];
+
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key !== keepKey) keysToRemove.push(key);
+    }
+
+    keysToRemove.forEach((key) => localStorage.removeItem(key));
+    syllabusTracker = safeReadStorage('syllabusTracker', {});
+}
 
 // --- HELPER: GITHUB RELEASE URL CONVERTER FOR BROWSER VIEWING ---
 function getGithubPdfViewerUrl(tag, filename) {
@@ -207,7 +223,6 @@ const moonSVG = `<path fill="currentColor" d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-
 
 function applyTheme(theme) {
     document.documentElement.setAttribute('data-theme', theme);
-    safeWriteStorage('theme', theme);
     document.querySelectorAll('.theme-icon-svg').forEach(icon => {
         icon.innerHTML = theme === 'dark' ? sunSVG : moonSVG;
     });
@@ -441,61 +456,23 @@ function renderSlideTopicsList(subCode) {
     });
 }
 
-// --- 6. PWA INSTALLATION ENGINE ---
-let deferredPrompt = null;
-
-function setInstallVisibility(isVisible) {
-    const installSidebarItem = document.getElementById('pwa-install-sidebar-item');
-    const installMobileBtn = document.getElementById('pwa-install-mobile');
-    const installMainBtn = document.getElementById('pwa-install-btn');
-
-    [installSidebarItem, installMobileBtn, installMainBtn].forEach((element) => {
-        if (element) {
-            element.classList.toggle('hidden', !isVisible);
-        }
-    });
-}
-
-window.addEventListener('beforeinstallprompt', (event) => {
-    event.preventDefault();
-    deferredPrompt = event;
-    setInstallVisibility(true);
-});
-
-function installPWA() {
-    if (!deferredPrompt) {
-        showToast('Install is not available right now.');
-        return;
+// --- 6. SERVICE WORKER CLEANUP ---
+function cleanupServiceWorker() {
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations()
+            .then((registrations) => {
+                registrations.forEach((registration) => registration.unregister());
+                console.log('Service workers unregistered and cache disabled.');
+            })
+            .catch((err) => console.error('Service worker unregister failed', err));
     }
-
-    deferredPrompt.prompt();
-    deferredPrompt.userChoice.then((choiceResult) => {
-        if (choiceResult.outcome === 'accepted') {
-            setInstallVisibility(false);
-            showToast('App installed successfully.');
-        }
-        deferredPrompt = null;
-    });
 }
-
-function triggerPWAInstall() {
-    installPWA();
-}
-
-window.addEventListener('appinstalled', () => {
-    setInstallVisibility(false);
-    deferredPrompt = null;
-});
 
 // --- INITIALIZATION ---
 document.addEventListener('DOMContentLoaded', () => {
+    resetBrowserAppData();
     const savedTheme = safeReadStorage('theme', 'light');
     applyTheme(savedTheme);
     navigateTo('dashboard');
-
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js')
-            .then((reg) => console.log('Service Worker Registered!', reg))
-            .catch((err) => console.error('SW Reg Failure', err));
-    }
+    cleanupServiceWorker();
 });
