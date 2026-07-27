@@ -1,6 +1,6 @@
 # 📚 Study Workspace — Developer Guide & Setup Manual
 
-> **Modular, Serverless & PWA-Enabled Academic Dashboard**  
+> **Modular, Serverless Academic Dashboard**  
 > Direct PDF previews via **Google Docs Viewer Wrapped URLs** and file delivery powered by **GitHub Release Assets**[cite: 3].
 
 ---
@@ -20,11 +20,7 @@ study-workspace/
 ├── index.html        # Main Application Viewport & UI Structure
 ├── style.css        # Responsive Layout & Dark/Light Theme Styles
 ├── app.js           # Core Routing Logic, Academic Database & URL Engine
-├── manifest.json    # Progressive Web App (PWA) Manifest Configuration
-├── sw.js            # Service Worker (Offline Support & Static Caching)
-└── icons/           # Mobile App Installation Icons
-    ├── icon-192.png
-    └── icon-512.png
+└── style.css        # Responsive Layout & Dark/Light Theme Styles
 
 ```
 
@@ -152,8 +148,8 @@ function getGithubPdfViewerUrl(tag, filename) {
 ```
 
 
-2. **PWA & Offline Worker:**
-`manifest.json` browser ko trigger karta hai home screen installation ke liye, aur `sw.js` app shell assets (`index.html`, `style.css`, `app.js`) ko cache karke instantaneous launch deta hai.
+2. **Static App Behavior:**
+App ek simple static site ki tarah chalta hai, jisme resources directly browser me load hote hain aur GitHub release assets se preview/download hoti hain.
 
 ---
 
