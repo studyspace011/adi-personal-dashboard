@@ -291,17 +291,14 @@ function closePdfModal() {
     if (container) container.innerHTML = '<div id="pdf-loader-text" style="color:#fff; margin-top:20px;">Loading PDF Document...</div>';
 }
 
-// jsDelivr CDN link (No CORS Error)
 function getCdnReleaseUrl(tag, filename) {
     return `https://cdn.jsdelivr.net/gh/${GITHUB_USER}/${GITHUB_REPO}@${tag}/${filename}`;
 }
 
-// Direct GitHub Link for Downloads
 function getGithubReleaseUrl(tag, filename) {
     return `https://github.com/${GITHUB_USER}/${GITHUB_REPO}/releases/download/${tag}/${filename}`;
 }
 
-// IN-APP VIEW ENGINE (Renders on Canvas)
 async function openReleaseAsset(tag, filename) {
     setupPdfModal();
     const modal = document.getElementById('pdf-modal-wrapper');
@@ -323,7 +320,7 @@ async function openReleaseAsset(tag, filename) {
             const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
             const pdf = await loadingTask.promise;
             
-            container.innerHTML = ''; // Clear loader
+            container.innerHTML = '';
             
             for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
                 const page = await pdf.getPage(pageNum);
@@ -352,7 +349,6 @@ async function openReleaseAsset(tag, filename) {
     }
 }
 
-// DIRECT DOWNLOAD ENGINE
 function downloadReleaseAsset(tag, filename, displayName) {
     showToast("Starting download...");
     const downloadUrl = getGithubReleaseUrl(tag, filename);
@@ -379,6 +375,7 @@ function applyTheme(theme) {
 function toggleTheme() {
     const currentTheme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
     applyTheme(currentTheme);
+    refreshVisibleView();
 }
 
 function toggleSidebar() {
@@ -415,6 +412,21 @@ function navigateTo(target) {
     else if (target === 'syllabus') renderSyllabusPage();
     else if (target === 'notes') renderNotesPage();
     else if (target === 'slides') renderSlidesSubjectLanding();
+}
+
+function refreshVisibleView() {
+    const activeView = document.querySelector('.content-view:not(.hidden)');
+    if (!activeView) return;
+
+    if (activeView.id === 'view-dashboard') {
+        renderDashboard();
+    } else if (activeView.id === 'view-syllabus') {
+        renderSyllabusPage();
+    } else if (activeView.id === 'view-notes') {
+        renderNotesPage();
+    } else if (activeView.id === 'view-slides') {
+        renderSlidesSubjectLanding();
+    }
 }
 
 // --- RENDERERS ---
@@ -463,7 +475,7 @@ function renderDashboard() {
 function toggleTrackItem(key) {
     syllabusTracker[key] = !syllabusTracker[key];
     safeWriteStorage('syllabusTracker', syllabusTracker);
-    renderDashboard();
+    refreshVisibleView();
 }
 
 const eyeIcon = `<svg class="icon-svg" viewBox="0 0 24 24"><path fill="currentColor" d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5s5 2.24 5 5s-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3s3-1.34 3-3s-1.34-3-3-3z"/></svg>`;
